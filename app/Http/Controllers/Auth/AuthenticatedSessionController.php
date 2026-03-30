@@ -57,8 +57,6 @@ class AuthenticatedSessionController extends Controller
             return redirect()->intended($fallbackRoute);
         }
 
-        app(TwoFactorController::class)->issueAndSendOtp($user);
-
         Auth::guard('web')->logout();
         $request->session()->forget('two_factor_verified');
         $request->session()->put('two_factor_user_id', $user->id);

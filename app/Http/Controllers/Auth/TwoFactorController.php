@@ -169,7 +169,7 @@ class TwoFactorController extends Controller
             'last_sent_at' => now(),
         ]);
 
-        Mail::to($user->email)->queue(new LoginOtpMail($user, $plainCode, self::OTP_EXPIRY_MINUTES));
+        Mail::to($user->email)->send(new LoginOtpMail($user, $plainCode, self::OTP_EXPIRY_MINUTES));
     }
 
     private function pendingUser(Request $request): ?User
