@@ -1,7 +1,13 @@
 <x-guest-layout>
     <div class="text-center mb-4">
         <h1 class="h4 mb-2">Two-Step Verification</h1>
-        <p class="text-muted mb-0">We sent a 6-digit code to {{ $maskedEmail }}</p>
+        <p class="text-muted mb-0">
+            @if ($otpSent)
+                We sent a 6-digit code to {{ $maskedEmail }}
+            @else
+                Click below to send your verification code.
+            @endif
+        </p>
     </div>
 
     <form method="POST" action="{{ route('two-factor.verify') }}" class="row g-3">
@@ -34,14 +40,16 @@
 
     <form method="POST" action="{{ route('two-factor.resend') }}" class="mt-3 d-grid" id="resendForm">
         @csrf
-        <button type="submit" id="resendButton" class="btn btn-outline-secondary" @disabled($remainingCooldown > 0)>
-            Resend code
+        <button type="submit" id="resendButton" class="btn btn-outline-secondary" @disabled($otpSent && $remainingCooldown > 0)>
+            {{ $otpSent ? 'Resend code' : 'Send code' }}
         </button>
         <small class="text-muted text-center mt-2" id="resendHint">
-            @if ($remainingCooldown > 0)
+            @if ($otpSent && $remainingCooldown > 0)
                 Resend available in <span id="countdown">{{ (int) ceil($remainingCooldown) }}</span>s
-            @else
+            @elseif ($otpSent)
                 You can request a new code every 60 seconds (max 5 per hour)
+            @else
+                We will send your 6-digit code to {{ $maskedEmail }}.
             @endif
         </small>
     </form>

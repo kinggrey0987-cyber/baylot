@@ -29,20 +29,16 @@ class TwoFactorController extends Controller
             return redirect()->route('login');
         }
 
-        /** @var LoginOtp|null $latestOtp */
-        $latestOtp = LoginOtp::query()
-            ->where('user_id', $pendingUser->id)
-            ->whereNull('consumed_at')
-            ->latest('created_at')
-            ->first();
-
+        $otpSentAt = $request->session()->get('two_factor_otp_sent_at');
+        $hasActiveOtp = ! empty($otpSentAt);
         $remainingCooldown = 0;
-        if ($latestOtp?->last_sent_at) {
-            $remainingCooldown = max(0, self::RESEND_COOLDOWN_SECONDS - now()->diffInSeconds($latestOtp->last_sent_at));
+        if ($hasActiveOtp) {
+            $remainingCooldown = max(0, self::RESEND_COOLDOWN_SECONDS - now()->diffInSeconds($otpSentAt));
         }
 
         return view('auth.two-factor', [
             'maskedEmail' => $this->maskEmail($pendingUser->email),
+            'otpSent' => $hasActiveOtp,
             'remainingCooldown' => $remainingCooldown,
         ]);
     }
@@ -153,6 +149,7 @@ class TwoFactorController extends Controller
         }
 
         $this->issueAndSendOtp($pendingUser);
+        $request->session()->put('two_factor_otp_sent_at', now()->toDateTimeString());
 
         return back()->with('success', 'A new verification code has been sent to your email.');
     }

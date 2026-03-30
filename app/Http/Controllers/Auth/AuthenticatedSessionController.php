@@ -59,6 +59,7 @@ class AuthenticatedSessionController extends Controller
 
         Auth::guard('web')->logout();
         $request->session()->forget('two_factor_verified');
+        $request->session()->forget('two_factor_otp_sent_at');
         $request->session()->put('two_factor_user_id', $user->id);
         $request->session()->put('two_factor_remember', $request->boolean('remember'));
         $request->session()->regenerateToken();
