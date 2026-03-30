@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
+use Throwable;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -63,6 +64,19 @@ class AuthenticatedSessionController extends Controller
         $request->session()->put('two_factor_user_id', $user->id);
         $request->session()->put('two_factor_remember', $request->boolean('remember'));
         $request->session()->regenerateToken();
+
+        try {
+            app(TwoFactorController::class)->issueAndSendOtp($user);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            $request->session()->forget('two_factor_user_id');
+            $request->session()->forget('two_factor_remember');
+
+            return back()->withInput($request->except('password'))->withErrors([
+                'email' => 'We could not send your verification code right now. Please try again shortly.',
+            ]);
+        }
 
         return redirect()->route('two-factor.show');
     }

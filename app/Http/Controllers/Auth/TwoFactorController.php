@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Throwable;
 
 class TwoFactorController extends Controller
 {
@@ -141,7 +142,15 @@ class TwoFactorController extends Controller
             ]);
         }
 
-        $this->issueAndSendOtp($pendingUser);
+        try {
+            $this->issueAndSendOtp($pendingUser);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return back()->withErrors([
+                'code' => 'We could not send a verification code right now. Please try again shortly.',
+            ]);
+        }
 
         return back()->with('success', 'A new verification code has been sent to your email.');
     }
@@ -150,13 +159,7 @@ class TwoFactorController extends Controller
     {
         $plainCode = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-        // Invalidate previous unconsumed codes so only the newest code can be used.
-        LoginOtp::query()
-            ->where('user_id', $user->id)
-            ->whereNull('consumed_at')
-            ->update(['consumed_at' => now()]);
-
-        LoginOtp::query()->create([
+        $newOtp = LoginOtp::query()->create([
             'user_id' => $user->id,
             'code_hash' => Hash::make($plainCode),
             'expires_at' => now()->addMinutes(self::OTP_EXPIRY_MINUTES),
@@ -164,7 +167,20 @@ class TwoFactorController extends Controller
             'last_sent_at' => now(),
         ]);
 
-        Mail::to($user->email)->send(new LoginOtpMail($user, $plainCode, self::OTP_EXPIRY_MINUTES));
+        try {
+            Mail::to($user->email)->send(new LoginOtpMail($user, $plainCode, self::OTP_EXPIRY_MINUTES));
+        } catch (Throwable $exception) {
+            $newOtp->delete();
+
+            throw $exception;
+        }
+
+        // Keep only the latest code active after successful delivery.
+        LoginOtp::query()
+            ->where('user_id', $user->id)
+            ->whereNull('consumed_at')
+            ->where('id', '!=', $newOtp->id)
+            ->update(['consumed_at' => now()]);
     }
 
     private function pendingUser(Request $request): ?User

@@ -2,9 +2,12 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Mail\LoginOtpMail;
+use App\Models\LoginOtp;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use RuntimeException;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -38,6 +41,31 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
         $response->assertRedirect(route('two-factor.show'));
         $response->assertSessionHas('two_factor_user_id', $user->id);
+        Mail::assertSent(LoginOtpMail::class, 1);
+        $this->assertSame(1, LoginOtp::query()->where('user_id', $user->id)->count());
+    }
+
+    public function test_login_returns_clean_error_when_otp_email_delivery_fails(): void
+    {
+        config(['auth.otp_enabled' => true]);
+
+        $user = User::factory()->create();
+
+        Mail::shouldReceive('to')->once()->andReturnSelf();
+        Mail::shouldReceive('send')->once()->andThrow(new RuntimeException('SMTP unavailable'));
+
+        $response = $this
+            ->from(route('login'))
+            ->post('/login', [
+                'email' => $user->email,
+                'password' => 'password',
+            ]);
+
+        $this->assertGuest();
+        $response->assertRedirect(route('login'));
+        $response->assertSessionHasErrors('email');
+        $response->assertSessionMissing('two_factor_user_id');
+        $this->assertSame(0, LoginOtp::query()->where('user_id', $user->id)->count());
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void
