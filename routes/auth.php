@@ -31,7 +31,7 @@ Route::middleware('guest')->group(function () {
         ->name('two-factor.verify');
 
     Route::post('two-factor/resend', [TwoFactorController::class, 'resend'])
-        ->middleware('throttle:5,1')
+        ->middleware('throttle:30,1')
         ->name('two-factor.resend');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])

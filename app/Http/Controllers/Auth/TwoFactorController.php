@@ -29,17 +29,16 @@ class TwoFactorController extends Controller
             return redirect()->route('login');
         }
 
-        $otpSentAt = $request->session()->get('two_factor_otp_sent_at');
-        $hasActiveOtp = ! empty($otpSentAt);
-        $remainingCooldown = 0;
-        if ($hasActiveOtp) {
-            $remainingCooldown = max(0, self::RESEND_COOLDOWN_SECONDS - now()->diffInSeconds($otpSentAt));
-        }
+        $resendState = $this->resendState($pendingUser);
+        $hasIssuedOtp = LoginOtp::query()
+            ->where('user_id', $pendingUser->id)
+            ->exists();
 
         return view('auth.two-factor', [
             'maskedEmail' => $this->maskEmail($pendingUser->email),
-            'otpSent' => $hasActiveOtp,
-            'remainingCooldown' => $remainingCooldown,
+            'otpSent' => $hasIssuedOtp,
+            'remainingCooldown' => $resendState['cooldown_remaining_seconds'],
+            'remainingHourlyLimit' => $resendState['hourly_limit_remaining_seconds'],
         ]);
     }
 
@@ -123,33 +122,26 @@ class TwoFactorController extends Controller
             ]);
         }
 
-        $otpSentAt = $request->session()->get('two_factor_otp_sent_at');
+        $resendState = $this->resendState($pendingUser);
 
-        if ($otpSentAt) {
-            $elapsed = now()->diffInSeconds(\Carbon\Carbon::parse($otpSentAt));
+        if ($resendState['cooldown_remaining_seconds'] > 0) {
+            $remaining = $resendState['cooldown_remaining_seconds'];
 
-            if ($elapsed < self::RESEND_COOLDOWN_SECONDS) {
-                $remaining = max(0, self::RESEND_COOLDOWN_SECONDS - $elapsed);
-
-                return back()->withErrors([
-                    'code' => "Please wait {$remaining} seconds before resending another code.",
-                ]);
-            }
+            return back()->withErrors([
+                'code' => "Please wait {$remaining} seconds before requesting another code.",
+            ]);
         }
 
-        $sentInLastHour = LoginOtp::query()
-            ->where('user_id', $pendingUser->id)
-            ->where('created_at', '>=', now()->subHour())
-            ->count();
+        if ($resendState['hourly_limit_remaining_seconds'] > 0) {
+            $remaining = $resendState['hourly_limit_remaining_seconds'];
+            $minutes = (int) ceil($remaining / 60);
 
-        if ($sentInLastHour >= self::RESEND_MAX_PER_HOUR) {
             return back()->withErrors([
-                'code' => 'Resend limit reached (5 per hour). Please try again later.',
+                'code' => "Resend limit reached. Please try again in about {$minutes} minute(s).",
             ]);
         }
 
         $this->issueAndSendOtp($pendingUser);
-        $request->session()->put('two_factor_otp_sent_at', now()->toDateTimeString());
 
         return back()->with('success', 'A new verification code has been sent to your email.');
     }
@@ -157,6 +149,12 @@ class TwoFactorController extends Controller
     public function issueAndSendOtp(User $user): void
     {
         $plainCode = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        // Invalidate previous unconsumed codes so only the newest code can be used.
+        LoginOtp::query()
+            ->where('user_id', $user->id)
+            ->whereNull('consumed_at')
+            ->update(['consumed_at' => now()]);
 
         LoginOtp::query()->create([
             'user_id' => $user->id,
@@ -187,5 +185,41 @@ class TwoFactorController extends Controller
         $maskedName = $visible.str_repeat('*', max(1, mb_strlen($name) - 1));
 
         return $maskedName.'@'.$domain;
+    }
+
+    /**
+     * @return array{cooldown_remaining_seconds:int, hourly_limit_remaining_seconds:int}
+     */
+    private function resendState(User $user): array
+    {
+        $now = now();
+
+        $lastSentOtp = LoginOtp::query()
+            ->where('user_id', $user->id)
+            ->latest('last_sent_at')
+            ->first(['last_sent_at']);
+
+        $cooldownRemainingSeconds = 0;
+        if ($lastSentOtp) {
+            $secondsSinceLastSend = $lastSentOtp->last_sent_at->diffInSeconds($now);
+            $cooldownRemainingSeconds = max(0, self::RESEND_COOLDOWN_SECONDS - $secondsSinceLastSend);
+        }
+
+        $sentInLastHour = LoginOtp::query()
+            ->where('user_id', $user->id)
+            ->where('last_sent_at', '>=', $now->copy()->subHour())
+            ->orderBy('last_sent_at')
+            ->get(['last_sent_at']);
+
+        $hourlyLimitRemainingSeconds = 0;
+        if ($sentInLastHour->count() >= self::RESEND_MAX_PER_HOUR) {
+            $unlockAt = $sentInLastHour->first()->last_sent_at->copy()->addHour();
+            $hourlyLimitRemainingSeconds = max(0, $unlockAt->timestamp - $now->timestamp);
+        }
+
+        return [
+            'cooldown_remaining_seconds' => $cooldownRemainingSeconds,
+            'hourly_limit_remaining_seconds' => $hourlyLimitRemainingSeconds,
+        ];
     }
 }

@@ -40,11 +40,13 @@
 
     <form method="POST" action="{{ route('two-factor.resend') }}" class="mt-3 d-grid" id="resendForm">
         @csrf
-        <button type="submit" id="resendButton" class="btn btn-outline-secondary" @disabled($otpSent && $remainingCooldown > 0)>
+        <button type="submit" id="resendButton" class="btn btn-outline-secondary" @disabled($otpSent && ($remainingCooldown > 0 || $remainingHourlyLimit > 0))>
             {{ $otpSent ? 'Resend code' : 'Send code' }}
         </button>
         <small class="text-muted text-center mt-2" id="resendHint">
-            @if ($otpSent && $remainingCooldown > 0)
+            @if ($otpSent && $remainingHourlyLimit > 0)
+                Resend limit reached. Try again in <span id="countdown">{{ (int) ceil($remainingHourlyLimit) }}</span>s
+            @elseif ($otpSent && $remainingCooldown > 0)
                 Resend available in <span id="countdown">{{ (int) ceil($remainingCooldown) }}</span>s
             @elseif ($otpSent)
                 You can request a new code every 60 seconds (max 5 per hour)
@@ -75,7 +77,7 @@
                 if (seconds <= 0) {
                     clearInterval(timer);
                     resendButton.disabled = false;
-                    resendHint.textContent = 'You can now resend a new code.';
+                    resendHint.textContent = 'You can now request a new code.';
                 }
             }, 1000);
         });
