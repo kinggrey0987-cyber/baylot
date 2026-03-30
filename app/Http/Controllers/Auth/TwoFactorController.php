@@ -130,7 +130,7 @@ class TwoFactorController extends Controller
             ->first();
 
         if ($latestOtp && now()->diffInSeconds($latestOtp->last_sent_at) < self::RESEND_COOLDOWN_SECONDS) {
-            $remaining = self::RESEND_COOLDOWN_SECONDS - now()->diffInSeconds($latestOtp->last_sent_at);
+            $remaining = (int) max(0, ceil(self::RESEND_COOLDOWN_SECONDS - now()->floatDiffInSeconds($latestOtp->last_sent_at)));
 
             return back()->withErrors([
                 'code' => "Please wait {$remaining} seconds before resending another code.",
