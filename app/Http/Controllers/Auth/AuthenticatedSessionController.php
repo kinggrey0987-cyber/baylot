@@ -66,7 +66,7 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerateToken();
 
         try {
-            app(TwoFactorController::class)->issueAndSendOtp($user);
+            app(TwoFactorController::class)->issueOtpForDeferredSend($user);
         } catch (Throwable $exception) {
             report($exception);
 

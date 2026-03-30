@@ -183,6 +183,34 @@ class TwoFactorController extends Controller
             ->update(['consumed_at' => now()]);
     }
 
+    public function issueOtpForDeferredSend(User $user): void
+    {
+        $plainCode = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        $newOtp = LoginOtp::query()->create([
+            'user_id' => $user->id,
+            'code_hash' => Hash::make($plainCode),
+            'expires_at' => now()->addMinutes(self::OTP_EXPIRY_MINUTES),
+            'attempts' => 0,
+            'last_sent_at' => now(),
+        ]);
+
+        dispatch(function () use ($user, $newOtp, $plainCode): void {
+            try {
+                Mail::to($user->email)->send(new LoginOtpMail($user, $plainCode, self::OTP_EXPIRY_MINUTES));
+
+                LoginOtp::query()
+                    ->where('user_id', $user->id)
+                    ->whereNull('consumed_at')
+                    ->where('id', '!=', $newOtp->id)
+                    ->update(['consumed_at' => now()]);
+            } catch (Throwable $exception) {
+                LoginOtp::query()->whereKey($newOtp->id)->delete();
+                report($exception);
+            }
+        })->afterResponse();
+    }
+
     private function pendingUser(Request $request): ?User
     {
         $pendingUserId = $request->session()->get('two_factor_user_id');
