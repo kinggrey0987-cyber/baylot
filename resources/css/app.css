@@ -1,0 +1,296 @@
+@import 'bootstrap/dist/css/bootstrap.min.css';
+@import 'bootstrap-icons/font/bootstrap-icons.css';
+@import 'leaflet/dist/leaflet.css';
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+
+body {
+	background-color: #f8f9fa;
+	font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+	outline: 3px solid rgba(13, 110, 253, 0.35);
+	outline-offset: 2px;
+}
+
+.brand-wordmark {
+	letter-spacing: 0.12rem;
+	font-weight: 700;
+}
+
+.brand-logo {
+	height: 40px;
+	width: auto;
+	display: block;
+}
+
+.brand-logo-sm {
+	height: 34px;
+}
+
+.baylot-navbar {
+	background: rgba(15, 23, 42, 0.72);
+	backdrop-filter: blur(8px);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.baylot-navbar .nav-link,
+.baylot-navbar .navbar-brand {
+	color: rgba(255, 255, 255, 0.9);
+}
+
+.baylot-navbar .nav-link:hover,
+.baylot-navbar .nav-link:focus {
+	color: #ffffff;
+}
+
+.hero-section {
+	position: relative;
+	min-height: 100vh;
+	background-image: var(--hero-image, url('/images/chatgpt-image.png'));
+	background-size: cover;
+	background-position: center;
+	background-repeat: no-repeat;
+	padding-top: 5rem;
+}
+
+.hero-overlay {
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.55);
+}
+
+.hero-content {
+	z-index: 2;
+	color: #fff;
+}
+
+.about-hero-section {
+	position: relative;
+	background-image: var(--about-hero-image, url('/images/aboutus.png'));
+	background-size: cover;
+	background-position: center;
+	background-repeat: no-repeat;
+	overflow: hidden;
+	padding-top: 8.25rem;
+	padding-bottom: 3rem;
+}
+
+.about-hero-overlay {
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(115deg, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.55));
+}
+
+.scroll-down {
+	position: absolute;
+	left: 50%;
+	bottom: -3rem;
+	transform: translateX(-50%);
+	font-size: 1.7rem;
+	color: #fff;
+	animation: pulseDown 1.6s infinite;
+}
+
+@keyframes pulseDown {
+	0% { transform: translateX(-50%) translateY(0); opacity: 0.6; }
+	50% { transform: translateX(-50%) translateY(6px); opacity: 1; }
+	100% { transform: translateX(-50%) translateY(0); opacity: 0.6; }
+}
+
+.section-title-accent {
+	font-weight: 700;
+	color: #f59e0b;
+}
+
+.icon-circle {
+	width: 64px;
+	height: 64px;
+	border-radius: 50%;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1.5rem;
+	background: rgba(245, 158, 11, 0.16);
+	color: #b45309;
+}
+
+.footer-dark {
+	background: #111827;
+}
+
+.footer-link {
+	color: rgba(255, 255, 255, 0.75);
+	text-decoration: none;
+}
+
+.footer-link:hover,
+.footer-link:focus {
+	color: #fff;
+}
+
+.animate-on-scroll {
+	opacity: 0;
+	transform: translateY(18px);
+	transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.animate-on-scroll.in-view {
+	opacity: 1;
+	transform: translateY(0);
+}
+
+.guest-auth {
+	background: radial-gradient(circle at top right, #dbeafe, #f8fafc 45%);
+}
+
+.tracking-otp {
+	letter-spacing: 0.45rem;
+}
+
+.map-canvas {
+	height: 320px;
+	width: 100%;
+	border-radius: 0.375rem;
+	border: 1px solid #dee2e6;
+}
+
+.table-responsive {
+	min-height: 200px;
+}
+
+.app-section-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 0.75rem;
+	margin-bottom: 1rem;
+}
+
+.app-section-title {
+	font-size: 1.45rem;
+	font-weight: 700;
+	margin: 0;
+	color: #0f172a;
+}
+
+.app-section-subtitle {
+	margin: 0.2rem 0 0;
+	color: #64748b;
+	font-size: 0.92rem;
+}
+
+.module-card {
+	border: 0;
+	box-shadow: 0 0.5rem 1.5rem rgba(15, 23, 42, 0.08);
+	border-radius: 0.9rem;
+	overflow: hidden;
+}
+
+.module-card .card-header {
+	background: #f8fafc;
+	border-bottom: 1px solid #e2e8f0;
+	font-weight: 600;
+	color: #0f172a;
+}
+
+.stat-card {
+	border: 0;
+	border-radius: 0.9rem;
+	padding: 1rem 1.1rem;
+	background: linear-gradient(145deg, #ffffff, #f8fafc);
+	box-shadow: 0 0.5rem 1.25rem rgba(15, 23, 42, 0.08);
+}
+
+.stat-card .label {
+	font-size: 0.8rem;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	font-weight: 600;
+	color: #64748b;
+	margin-bottom: 0.25rem;
+}
+
+.stat-card .value {
+	font-size: 1.8rem;
+	font-weight: 700;
+	color: #0f172a;
+	line-height: 1.1;
+}
+
+.module-table thead th {
+	background: #f8fafc;
+	color: #334155;
+	font-size: 0.84rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	font-weight: 600;
+	border-bottom-width: 1px;
+	white-space: nowrap;
+}
+
+.module-table td,
+.module-table th {
+	vertical-align: middle;
+}
+
+.module-table tbody tr:hover {
+	background-color: #f8fafc;
+}
+
+.table-empty {
+	text-align: center;
+	color: #64748b;
+	padding: 1rem 0.5rem;
+}
+
+.status-badge {
+	font-size: 0.72rem;
+	text-transform: capitalize;
+	letter-spacing: 0.02em;
+}
+
+.module-form .form-label {
+	font-weight: 600;
+	font-size: 0.9rem;
+	color: #334155;
+}
+
+.properties-filter-sticky {
+	z-index: 1010;
+}
+
+@media (min-width: 992px) {
+	.properties-filter-sticky {
+		position: sticky;
+		top: 5.5rem;
+	}
+}
+
+@media (max-width: 767.98px) {
+	.app-section-head {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+}
+
+@media (max-width: 991.98px) {
+	.baylot-navbar .navbar-collapse {
+		background: rgba(17, 24, 39, 0.95);
+		padding: 0.9rem;
+		border-radius: 0.5rem;
+		margin-top: 0.5rem;
+	}
+
+	.about-hero-section {
+		padding-top: 7.25rem;
+	}
+
+	.hero-section .display-4 {
+		font-size: 2.15rem;
+	}
+}
