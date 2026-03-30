@@ -39,7 +39,7 @@
         </button>
         <small class="text-muted text-center mt-2" id="resendHint">
             @if ($remainingCooldown > 0)
-                Resend available in <span id="countdown">{{ $remainingCooldown }}</span>s
+                Resend available in <span id="countdown">{{ (int) ceil($remainingCooldown) }}</span>s
             @else
                 You can request a new code every 60 seconds (max 5 per hour)
             @endif
@@ -51,14 +51,17 @@
             const resendButton = document.getElementById('resendButton');
             const countdown = document.getElementById('countdown');
             const resendHint = document.getElementById('resendHint');
-            let seconds = Number(countdown?.textContent || 0);
+            const initialSeconds = Number.parseFloat(countdown?.textContent || '0');
+            let seconds = Number.isFinite(initialSeconds) ? Math.max(0, Math.ceil(initialSeconds)) : 0;
 
             if (!countdown || !resendButton || seconds <= 0) {
                 return;
             }
 
+            countdown.textContent = String(seconds);
+
             const timer = setInterval(() => {
-                seconds -= 1;
+                seconds = Math.max(0, seconds - 1);
                 countdown.textContent = String(seconds);
 
                 if (seconds <= 0) {
