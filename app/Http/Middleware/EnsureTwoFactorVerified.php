@@ -11,6 +11,12 @@ class EnsureTwoFactorVerified
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // When OTP/2FA is globally disabled (dev/testing only), bypass the session check.
+        // This is intentional: OTP_ENABLED=false is never set in production.
+        if (! config('auth.otp_enabled', true)) {
+            return $next($request);
+        }
+
         if (Auth::check() && ! $request->session()->has('two_factor_verified')) {
             Auth::logout();
             $request->session()->invalidate();

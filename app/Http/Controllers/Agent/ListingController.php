@@ -88,7 +88,7 @@ class ListingController extends Controller
         $floorsMax = null;
         $availableUnits = null;
 
-        $status = $this->resolveStatusFromAvailability($requestedStatus, is_null($availableUnits) ? null : (int) $availableUnits);
+        $status = $requestedStatus;
 
         DB::transaction(function () use ($request, $data, $propertyType, $price, $priceMax, $lotAreaSqm, $lotAreaMaxSqm, $floorAreaSqm, $pricePerSqm, $bedrooms, $bedroomsMax, $bathrooms, $bathroomsMax, $floors, $floorsMax, $availableUnits, $status): void {
             $listingId = (string) Str::uuid();
@@ -214,7 +214,7 @@ class ListingController extends Controller
         $floorsMax = null;
         $availableUnits = null;
 
-        $status = $this->resolveStatusFromAvailability($requestedStatus, is_null($availableUnits) ? null : (int) $availableUnits);
+        $status = $requestedStatus;
 
         DB::transaction(function () use ($request, $listing, $data, $propertyType, $price, $priceMax, $lotAreaSqm, $lotAreaMaxSqm, $floorAreaSqm, $pricePerSqm, $bedrooms, $bedroomsMax, $bathrooms, $bathroomsMax, $floors, $floorsMax, $availableUnits, $status): void {
             $listing->update([
@@ -243,7 +243,7 @@ class ListingController extends Controller
             );
 
             // Delete images marked for removal
-            $deleteIds = array_filter((array) $request->input('delete_images', []), 'is_numeric');
+            $deleteIds = $data['delete_images'] ?? [];
             if (! empty($deleteIds)) {
                 $toDelete = $listing->images()->whereIn('id', $deleteIds)->get();
                 foreach ($toDelete as $img) {
@@ -256,10 +256,10 @@ class ListingController extends Controller
 
             // Replace individual images keyed by image ID
             foreach ($request->file('replace_images', []) as $imageId => $imageFile) {
-                if (! is_numeric($imageId) || ! $imageFile instanceof UploadedFile) {
+                if (! is_string($imageId) || ! Str::isUuid($imageId) || ! $imageFile instanceof UploadedFile) {
                     continue;
                 }
-                $imageRecord = $listing->images()->find((int) $imageId);
+                $imageRecord = $listing->images()->find($imageId);
                 if ($imageRecord === null) {
                     continue;
                 }

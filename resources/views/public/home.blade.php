@@ -97,12 +97,16 @@
                 </div>
                 <div class="row g-4">
                     @forelse($featuredListings as $listing)
+                        @php
+                            $isSaved = in_array($listing->id, $savedListingIds ?? [], true);
+                        @endphp
                         <div class="col-12 col-md-6 col-lg-4 animate-on-scroll">
                             <div class="card h-100 border-0 shadow-sm">
-                                <img src="{{ $listing->images->first()?->image_url ?? 'https://via.placeholder.com/640x360?text=BayLot' }}" class="card-img-top" alt="{{ $listing->title }}">
+                                <img src="{{ $listing->images->first()?->image_url ?? asset('images/hero.jpg') }}" class="card-img-top" alt="{{ $listing->title }}">
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between mb-2">
                                         <div class="d-flex gap-1 flex-wrap">
+                                            <span class="badge text-bg-warning text-dark"><i class="bi bi-star-fill"></i> Featured</span>
                                             <span class="badge text-bg-info">{{ ucwords(str_replace('_', ' ', $listing->property_type ?? 'lot')) }}</span>
                                             <span class="badge text-bg-secondary">{{ ucfirst($listing->listing_type) }}</span>
                                         </div>
@@ -175,14 +179,36 @@
                                     </p>
                                 </div>
                                 <div class="card-footer bg-white border-0 pt-0 pb-3 px-3">
-                                    <a href="{{ route('listings.show', $listing) }}" class="btn btn-outline-primary w-100">View Details</a>
+                                    <div class="d-flex gap-2">
+                                        <a href="{{ route('listings.show', $listing) }}" class="btn btn-outline-primary flex-grow-1">View Details</a>
+                                        @auth
+                                            @if(auth()->user()->role === 'buyer')
+                                                @if($isSaved)
+                                                    <form method="POST" action="{{ route('buyer.wishlist.destroy', $listing) }}">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button class="btn btn-outline-danger" type="submit" aria-label="Remove from wishlist" title="Remove from wishlist">
+                                                            <i class="bi bi-heart-fill"></i>
+                                                        </button>
+                                                    </form>
+                                                @else
+                                                    <form method="POST" action="{{ route('buyer.wishlist.store', $listing) }}">
+                                                        @csrf
+                                                        <button class="btn btn-outline-secondary" type="submit" aria-label="Add to wishlist" title="Add to wishlist">
+                                                            <i class="bi bi-heart"></i>
+                                                        </button>
+                                                    </form>
+                                                @endif
+                                            @endif
+                                        @endauth
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     @empty
                         <div class="col-12 animate-on-scroll">
                             <div class="alert alert-light border text-center mb-0">
-                                No properties available right now.
+                                No featured properties available right now.
                             </div>
                         </div>
                     @endforelse
@@ -214,21 +240,6 @@
         </section>
     </main>
 
-    <footer class="footer-dark py-4">
-        <div class="container">
-            <div class="row g-3 align-items-center">
-                <div class="col-12 col-md-4 text-center text-md-start">
-                    <img src="{{ asset('images/logo.png') }}" alt="BayLot" class="brand-logo brand-logo-sm d-inline-block">
-                </div>
-                <div class="col-12 col-md-4 text-center">
-                    <a href="{{ route('about') }}" class="footer-link me-3">About</a>
-                    <a href="{{ route('properties.index') }}" class="footer-link">Properties</a>
-                </div>
-                <div class="col-12 col-md-4 text-center text-md-end text-white-50">
-                    support@baylot.local · +63 917 000 0000
-                </div>
-            </div>
-        </div>
-    </footer>
+    @include('partials.site-footer')
 </body>
 </html>

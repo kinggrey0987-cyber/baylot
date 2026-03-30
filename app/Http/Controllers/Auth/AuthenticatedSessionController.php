@@ -41,6 +41,22 @@ class AuthenticatedSessionController extends Controller
 
         $user = User::query()->where('email', $request->string('email'))->firstOrFail();
 
+        // Dev/testing bypass: when OTP is disabled, log in immediately without
+        // issuing or sending an OTP. The two_factor_verified session flag is set
+        // so the EnsureTwoFactorVerified middleware passes normally.
+        if (! config('auth.otp_enabled', true)) {
+            $remember = $request->boolean('remember');
+            Auth::loginUsingId($user->id, $remember);
+            $request->session()->regenerate();
+            $request->session()->put('two_factor_verified', true);
+
+            $fallbackRoute = $user->role === 'buyer'
+                ? route('home', absolute: false)
+                : route('dashboard', absolute: false);
+
+            return redirect()->intended($fallbackRoute);
+        }
+
         app(TwoFactorController::class)->issueAndSendOtp($user);
 
         Auth::guard('web')->logout();

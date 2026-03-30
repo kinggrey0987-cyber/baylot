@@ -251,7 +251,7 @@ class SharedListingController extends Controller
                 [$request->float('lng'), $request->float('lat'), $listing->id]
             );
 
-            $deleteIds = array_filter((array) $request->input('delete_images', []), 'is_numeric');
+            $deleteIds = $data['delete_images'] ?? [];
             if (! empty($deleteIds)) {
                 $toDelete = $listing->images()->whereIn('id', $deleteIds)->get();
                 foreach ($toDelete as $img) {
@@ -263,10 +263,10 @@ class SharedListingController extends Controller
             }
 
             foreach ($request->file('replace_images', []) as $imageId => $imageFile) {
-                if (! is_numeric($imageId) || ! $imageFile instanceof UploadedFile) {
+                if (! is_string($imageId) || ! Str::isUuid($imageId) || ! $imageFile instanceof UploadedFile) {
                     continue;
                 }
-                $imageRecord = $listing->images()->find((int) $imageId);
+                $imageRecord = $listing->images()->find($imageId);
                 if ($imageRecord === null) {
                     continue;
                 }

@@ -18,7 +18,7 @@ class LeadQueueController extends Controller
         $agent = auth()->user();
         $brokerId = $agent->broker_id;
 
-        $claimableLeads = Lead::with(['listing.project', 'buyer', 'appointment'])
+        $claimableLeads = Lead::with(['listing.project', 'buyer', 'appointment', 'messages'])
             ->where('status', 'new')
             ->whereHas('listing', function ($query) use ($brokerId): void {
                 $query->where('listing_type', 'shared')
@@ -35,7 +35,7 @@ class LeadQueueController extends Controller
             ->latest()
             ->get();
 
-        $claimedLeads = Lead::with(['listing.project', 'buyer', 'appointment', 'claim'])
+        $claimedLeads = Lead::with(['listing.project', 'buyer', 'appointment', 'claim', 'messages'])
             ->whereHas('claim', fn ($query) => $query->where('agent_id', $agent->id))
             ->latest()
             ->get();

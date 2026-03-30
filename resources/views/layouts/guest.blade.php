@@ -7,9 +7,9 @@
     <title>{{ config('app.name', 'BayLot') }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="guest-auth d-flex align-items-center min-vh-100">
-    <div class="container py-4">
-        <div class="row justify-content-center">
+<body class="guest-auth d-flex flex-column min-vh-100">
+    <main class="container py-4 flex-grow-1 d-flex align-items-center">
+        <div class="row justify-content-center w-100">
             <div class="col-12 col-md-8 col-lg-5">
                 <div class="card shadow-sm border-0">
                     <div class="card-body p-4 p-md-5">
@@ -42,6 +42,8 @@
                 </div>
             </div>
         </div>
-    </div>
+    </main>
+
+    @include('partials.site-footer')
 </body>
 </html>

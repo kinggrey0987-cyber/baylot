@@ -45,10 +45,39 @@
                         <td>{{ ucwords(str_replace('_', ' ', $listing->property_type ?? 'lot')) }}</td>
                         <td><span class="badge {{ $listingStatusClass }} status-badge">{{ ucfirst($listing->status) }}</span></td>
                         <td>₱{{ number_format($listing->price, 2) }}</td>
-                        <td>{{ $listing->owner?->name ?? 'Agency listing' }}</td>
+                        <td>
+                            @if($listing->listing_type === 'exclusive')
+                                {{ $listing->owner?->name ?? 'Unknown agent' }}
+                            @else
+                                {{ $listing->project?->broker?->name ?? 'Project listing' }}
+                            @endif
+                        </td>
                     </tr>
                 @empty
                     <tr><td colspan="5" class="table-empty">No reserved or owned listings yet.</td></tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card module-card mb-3" id="my-conversations">
+        <div class="card-header">My Lead Conversations</div>
+        <div class="table-responsive">
+            <table class="table module-table mb-0">
+                <thead><tr><th>Listing</th><th>Assigned Agent</th><th>Last Activity</th><th class="text-end">Action</th></tr></thead>
+                <tbody>
+                @forelse($leadConversations as $lead)
+                    <tr>
+                        <td>{{ $lead->listing->title }}</td>
+                        <td>{{ $lead->claim?->agent?->name ?? $lead->appointment?->assignedAgent?->name ?? 'Waiting for agent' }}</td>
+                        <td>{{ $lead->updated_at?->diffForHumans() }}</td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-primary" href="{{ route('leads.conversation.show', $lead) }}">Open Chat</a>
+                        </td>
+                    </tr>
+                @empty
+                    <tr><td colspan="4" class="table-empty">No conversations yet.</td></tr>
                 @endforelse
                 </tbody>
             </table>

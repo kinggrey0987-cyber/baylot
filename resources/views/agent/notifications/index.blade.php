@@ -2,7 +2,7 @@
     <div class="app-section-head d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
             <h1 class="app-section-title">Notifications</h1>
-            <p class="app-section-subtitle">Review new shared leads that are ready to claim.</p>
+            <p class="app-section-subtitle">Review new leads, open queue items, and jump into active conversations.</p>
         </div>
 
         @if($unreadNotificationsCount > 0)
@@ -50,7 +50,7 @@
                                 </span>
                             </td>
                             <td class="text-end">
-                                <a class="btn btn-sm btn-outline-primary" href="{{ $data['action_url'] ?? route('agent.leads.queue') }}">Open Queue</a>
+                                <a class="btn btn-sm btn-outline-primary" href="{{ $data['action_url'] ?? route('agent.leads.queue') }}">Open</a>
                                 @if(is_null($notification->read_at))
                                     <form method="POST" action="{{ route('agent.notifications.read', $notification) }}" class="d-inline-block">
                                         @csrf @method('PATCH')

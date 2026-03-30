@@ -112,4 +112,19 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | OTP / Two-Factor Authentication Toggle
+    |--------------------------------------------------------------------------
+    |
+    | When set to false the OTP email challenge is skipped entirely and the
+    | session is marked as two_factor_verified immediately after a successful
+    | credential check. This is intended for local/dev/testing only.
+    |
+    | Production must always use the default value of true.
+    |
+    */
+
+    'otp_enabled' => env('OTP_ENABLED', true),
+
 ];

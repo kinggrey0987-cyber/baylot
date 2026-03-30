@@ -35,6 +35,7 @@ class Listing extends Model
         'floors_max',
         'available_units',
         'status',
+        'is_featured',
     ];
 
     protected function casts(): array
@@ -53,6 +54,7 @@ class Listing extends Model
             'floors' => 'integer',
             'floors_max' => 'integer',
             'available_units' => 'integer',
+            'is_featured' => 'boolean',
         ];
     }
 
@@ -97,9 +99,19 @@ class Listing extends Model
         return $query->where('status', 'available');
     }
 
+    public function scopeInsideNegrosOccidental($query)
+    {
+        return $query->whereExists(function ($subQuery): void {
+            $subQuery->selectRaw('1')
+                ->from('geofences')
+                ->where('name', 'Negros Occidental')
+                ->whereRaw('ST_Covers(geofences.geom, listings.location)');
+        });
+    }
+
     public function scopeAvailableUnitsForListing($query, Listing $listing)
     {
-        $query->publiclyActive()->where('id', '!=', $listing->id);
+        $query->publiclyActive()->insideNegrosOccidental()->where('id', '!=', $listing->id);
 
         if ($listing->listing_type === 'shared' && ! is_null($listing->project_id)) {
             return $query
@@ -120,5 +132,47 @@ class Listing extends Model
     {
         return $query->where('listing_type', 'exclusive')
             ->where('owner_agent_id', $agentId);
+    }
+
+    public function scopeFeatured($query)
+    {
+        return $query->where('is_featured', true);
+    }
+
+    public function scopePubliclyVisible($query)
+    {
+        return $query->publiclyActive()
+            ->insideNegrosOccidental()
+            ->where(function ($subQuery): void {
+                $subQuery
+                    ->where(function ($sharedQuery): void {
+                        $sharedQuery->where('listing_type', 'shared')
+                            ->whereHas('project.broker', function ($brokerQuery): void {
+                                $brokerQuery
+                                    ->where('role', 'broker')
+                                    ->where('is_active', true);
+                            });
+                    })
+                    ->orWhere(function ($exclusiveQuery): void {
+                        $exclusiveQuery->where('listing_type', 'exclusive')
+                            ->whereHas('owner', function ($ownerQuery): void {
+                                $ownerQuery
+                                    ->where('role', 'agent')
+                                    ->where('is_active', true);
+                            });
+                    });
+            });
+    }
+
+    public function scopeFeaturedPubliclyVisible($query)
+    {
+        return $query->publiclyVisible()->featured();
+    }
+
+    public function scopeWithBounds($query, float $swLat, float $swLng, float $neLat, float $neLng)
+    {
+        return $query
+            ->whereRaw('ST_Y(location) BETWEEN ? AND ?', [$swLat, $neLat])
+            ->whereRaw('ST_X(location) BETWEEN ? AND ?', [$swLng, $neLng]);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Buyer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Models\Lead;
 use App\Models\Listing;
 use Illuminate\Contracts\View\View;
 
@@ -13,7 +14,7 @@ class DashboardController extends Controller
     {
         $buyerId = auth()->id();
         $securedListings = Listing::query()
-            ->with(['owner'])
+            ->with(['owner', 'project.broker'])
             ->where(function ($query) use ($buyerId): void {
                 $query->where(function ($subQuery) use ($buyerId): void {
                     $subQuery->where('status', 'reserved')
@@ -42,6 +43,11 @@ class DashboardController extends Controller
             'securedListings' => $securedListings,
             'reservedCount' => $securedListings->where('status', 'reserved')->count(),
             'ownedCount' => $securedListings->where('status', 'sold')->count(),
+            'leadConversations' => Lead::with(['listing', 'claim.agent', 'appointment.assignedAgent'])
+                ->where('buyer_id', $buyerId)
+                ->latest()
+                ->limit(12)
+                ->get(),
             'appointments' => Appointment::with(['lead.listing', 'assignedAgent'])
                 ->whereHas('lead', fn ($query) => $query->where('buyer_id', $buyerId))
                 ->latest()

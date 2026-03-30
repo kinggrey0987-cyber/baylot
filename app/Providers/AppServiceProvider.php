@@ -10,6 +10,7 @@ use App\Policies\AppointmentPolicy;
 use App\Policies\LeadPolicy;
 use App\Policies\ListingPolicy;
 use App\Policies\ProjectPolicy;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -28,6 +29,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // This project uses Bootstrap; force Bootstrap pagination templates globally.
+        Paginator::useBootstrapFive();
+
         Gate::policy(Project::class, ProjectPolicy::class);
         Gate::policy(Listing::class, ListingPolicy::class);
         Gate::policy(Lead::class, LeadPolicy::class);

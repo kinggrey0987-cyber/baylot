@@ -6,6 +6,7 @@ namespace App\Models;
 use App\Models\Appointment;
 use App\Models\Lead;
 use App\Models\LeadClaim;
+use App\Models\LeadMessage;
 use App\Models\Listing;
 use App\Models\LoginOtp;
 use App\Models\Project;
@@ -30,11 +31,14 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'bio',
         'email',
+        'phone',
         'password',
         'role',
         'broker_id',
         'is_active',
+        'profile_photo_path',
     ];
 
     /**
@@ -114,6 +118,11 @@ class User extends Authenticatable
     public function leads()
     {
         return $this->hasMany(Lead::class, 'buyer_id');
+    }
+
+    public function sentLeadMessages()
+    {
+        return $this->hasMany(LeadMessage::class, 'sender_id');
     }
 
     public function claimedLeads()

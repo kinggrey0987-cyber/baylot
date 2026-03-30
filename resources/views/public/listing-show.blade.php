@@ -12,6 +12,9 @@
 
         $images = $listing->images->sortBy('sort_order')->values();
         $carouselId = 'listingImagesCarousel-'.$listing->id;
+        $overviewFullId = 'overviewFull-'.$listing->id;
+        $overviewToggleId = 'overviewToggle-'.$listing->id;
+        $overviewPreviewId = 'overviewPreview-'.$listing->id;
     @endphp
 
     <div class="row g-4">
@@ -32,7 +35,9 @@
                             <p class="text-muted mb-2">
                                 <i class="bi bi-geo-alt"></i>
                                 Negros Occidental, Philippines
-                                <span class="small">(Lat {{ number_format((float) $lat, 5) }}, Lng {{ number_format((float) $lng, 5) }})</span>
+                                @if(! is_null($lat) && ! is_null($lng))
+                                    <span class="small">(Lat {{ number_format($lat, 5) }}, Lng {{ number_format($lng, 5) }})</span>
+                                @endif
                             </p>
                             <p class="display-6 fw-semibold text-primary mb-0">
                                 ₱{{ number_format($listing->price, 2) }}
@@ -130,13 +135,30 @@
                             <div class="border rounded p-3 h-100">
                                 <h2 class="h6 mb-3">Seller / Poster</h2>
                                 @if($listing->listing_type === 'exclusive')
-                                    <p class="mb-1"><strong>Agent:</strong> {{ $listing->owner?->name ?? 'Unknown agent' }}</p>
+                                    <p class="mb-1">
+                                        <strong>Agent:</strong>
+                                        @if($listing->owner)
+                                            <a href="{{ route('agents.show', $listing->owner) }}" class="text-decoration-none">{{ $listing->owner->name }}</a>
+                                        @else
+                                            Unknown agent
+                                        @endif
+                                    </p>
                                     @if($listing->owner?->broker)
-                                        <p class="mb-1"><strong>Brokerage:</strong> {{ $listing->owner->broker->name }}</p>
+                                        <p class="mb-1">
+                                            <strong>Brokerage:</strong>
+                                            <a href="{{ route('brokers.show', $listing->owner->broker) }}" class="text-decoration-none">{{ $listing->owner->broker->name }}</a>
+                                        </p>
                                     @endif
                                 @else
                                     <p class="mb-1"><strong>Project:</strong> {{ $listing->project?->name ?? 'Shared project' }}</p>
-                                    <p class="mb-1"><strong>Published by Broker:</strong> {{ $listing->project?->broker?->name ?? 'Unassigned broker' }}</p>
+                                    <p class="mb-1">
+                                        <strong>Published by Broker:</strong>
+                                        @if($listing->project?->broker)
+                                            <a href="{{ route('brokers.show', $listing->project->broker) }}" class="text-decoration-none">{{ $listing->project->broker->name }}</a>
+                                        @else
+                                            Unassigned broker
+                                        @endif
+                                    </p>
                                 @endif
                                 <p class="text-muted small mb-0 mt-2">Use the contact panel to send an inquiry or schedule a site visit.</p>
                             </div>
@@ -144,11 +166,65 @@
                     </div>
 
                     <div class="mt-4">
-                        <h2 class="h6 mb-2">Description</h2>
+                        <h2 class="h6 mb-3">Description</h2>
                         <div class="border rounded p-3 bg-white">
-                            <p class="mb-0 text-secondary" style="white-space: pre-line;">
-                                {{ $listing->description ?: 'No description provided yet.' }}
-                            </p>
+                            <div class="mb-3">
+                                <h3 class="h6 text-uppercase text-muted mb-2">Overview</h3>
+
+                                <p id="{{ $overviewPreviewId }}" class="mb-2 text-secondary" style="white-space: pre-line;">
+                                    {{ $structuredDescription['has_long_overview'] ? $structuredDescription['overview_preview'] : $structuredDescription['overview'] }}
+                                </p>
+
+                                @if($structuredDescription['has_long_overview'])
+                                    <div class="collapse" id="{{ $overviewFullId }}">
+                                        <p class="mb-2 text-secondary" style="white-space: pre-line;">{{ $structuredDescription['overview'] }}</p>
+                                    </div>
+                                    <button
+                                        id="{{ $overviewToggleId }}"
+                                        type="button"
+                                        class="btn btn-link btn-sm p-0 text-decoration-none"
+                                        data-bs-toggle="collapse"
+                                        data-bs-target="#{{ $overviewFullId }}"
+                                        aria-expanded="false"
+                                        aria-controls="{{ $overviewFullId }}"
+                                    >
+                                        View more
+                                    </button>
+                                @endif
+                            </div>
+
+                            @if(! empty($structuredDescription['highlights']))
+                                <div class="mb-3">
+                                    <h3 class="h6 text-uppercase text-muted mb-2">Property Highlights</h3>
+                                    <ul class="mb-0 ps-3 small text-secondary">
+                                        @foreach($structuredDescription['highlights'] as $highlight)
+                                            <li>{{ $highlight }}</li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endif
+
+                            @if(! empty($structuredDescription['amenities']))
+                                <div class="mb-3">
+                                    <h3 class="h6 text-uppercase text-muted mb-2">Amenities / Facilities</h3>
+                                    <ul class="mb-0 ps-3 small text-secondary">
+                                        @foreach($structuredDescription['amenities'] as $amenity)
+                                            <li>{{ $amenity }}</li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endif
+
+                            @if(! empty($structuredDescription['location_summary']))
+                                <div>
+                                    <h3 class="h6 text-uppercase text-muted mb-2">Location Summary</h3>
+                                    <ul class="mb-0 ps-3 small text-secondary">
+                                        @foreach($structuredDescription['location_summary'] as $locationLine)
+                                            <li>{{ $locationLine }}</li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -177,6 +253,9 @@
                                 </div>
                                 <div class="col-12 d-grid">
                                     <button id="contactSubmitBtn" class="btn btn-primary">Send Inquiry</button>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-text">After submitting, you will continue in a live chat thread with the handling agent.</div>
                                 </div>
                             </form>
                         @else
@@ -265,7 +344,7 @@
 
                     <div class="col-12 col-md-6 col-lg-4">
                         <div class="card h-100 border-0 shadow-sm">
-                            <img src="{{ $unit->images->first()?->image_url ?? 'https://via.placeholder.com/640x360?text=BayLot' }}" class="card-img-top" alt="{{ $unit->title }}" style="height: 190px; object-fit: cover;">
+                            <img src="{{ $unit->images->first()?->image_url ?? asset('images/hero.jpg') }}" class="card-img-top" alt="{{ $unit->title }}" style="height: 190px; object-fit: cover;">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between mb-2">
                                     <div class="d-flex gap-1 flex-wrap">
@@ -334,9 +413,76 @@
         @endif
     </section>
 
+    <section class="mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h2 class="h4 mb-1">Frequently Asked Questions</h2>
+                <p class="text-muted mb-0">Quick answers generated from this listing's details.</p>
+            </div>
+        </div>
+
+        <div class="accordion" id="listingFaqAccordion-{{ $listing->id }}">
+            @forelse($faqItems as $index => $faq)
+                @php
+                    $faqHeadingId = 'faqHeading-'.$listing->id.'-'.$index;
+                    $faqCollapseId = 'faqCollapse-'.$listing->id.'-'.$index;
+                @endphp
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="{{ $faqHeadingId }}">
+                        <button
+                            class="accordion-button {{ $index === 0 ? '' : 'collapsed' }}"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#{{ $faqCollapseId }}"
+                            aria-expanded="{{ $index === 0 ? 'true' : 'false' }}"
+                            aria-controls="{{ $faqCollapseId }}"
+                        >
+                            {{ $faq['question'] }}
+                        </button>
+                    </h2>
+                    <div
+                        id="{{ $faqCollapseId }}"
+                        class="accordion-collapse collapse {{ $index === 0 ? 'show' : '' }}"
+                        aria-labelledby="{{ $faqHeadingId }}"
+                        data-bs-parent="#listingFaqAccordion-{{ $listing->id }}"
+                    >
+                        <div class="accordion-body">
+                            {{ $faq['answer'] }}
+                        </div>
+                    </div>
+                </div>
+            @empty
+                <div class="alert alert-light border mb-0">No FAQ entries available for this listing yet.</div>
+            @endforelse
+        </div>
+    </section>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            window.BayLotMap.initViewMap('listingMap', {{ (float) $lat }}, {{ (float) $lng }}, @json($geofenceGeoJson));
+            window.BayLotMap.initViewMap(
+                'listingMap',
+                @json($lat ?? 10.6713),
+                @json($lng ?? 122.9556),
+                @json($geofenceGeoJson),
+                @json(config('services.google_maps.key'))
+            );
+
+            const overviewCollapse = document.getElementById(@json($overviewFullId));
+            const overviewPreview = document.getElementById(@json($overviewPreviewId));
+            const overviewToggle = document.getElementById(@json($overviewToggleId));
+
+            if (overviewCollapse && overviewPreview && overviewToggle) {
+                overviewCollapse.addEventListener('show.bs.collapse', () => {
+                    overviewPreview.classList.add('d-none');
+                    overviewToggle.textContent = 'View less';
+                });
+
+                overviewCollapse.addEventListener('hide.bs.collapse', () => {
+                    overviewPreview.classList.remove('d-none');
+                    overviewToggle.textContent = 'View more';
+                });
+            }
 
             const visitForm = document.getElementById('siteVisitForm');
             const scheduleToggle = document.getElementById('scheduleVisitToggle');

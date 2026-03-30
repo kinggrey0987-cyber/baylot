@@ -261,22 +261,6 @@
         </section>
     </main>
 
-    <footer class="footer-dark py-4">
-        <div class="container">
-            <div class="row g-3 align-items-center">
-                <div class="col-12 col-md-4 text-center text-md-start">
-                    <img src="{{ asset('images/logo.png') }}" alt="BayLot" class="brand-logo brand-logo-sm d-inline-block">
-                </div>
-                <div class="col-12 col-md-4 text-center">
-                    <a href="{{ route('home') }}" class="footer-link me-3">Home</a>
-                    <a href="{{ route('properties.index') }}" class="footer-link me-3">Properties</a>
-                    <a href="{{ route('about') }}" class="footer-link">About</a>
-                </div>
-                <div class="col-12 col-md-4 text-center text-md-end text-white-50">
-                    support@baylot.local · +63 917 000 0000
-                </div>
-            </div>
-        </div>
-    </footer>
+    @include('partials.site-footer')
 </body>
 </html>

@@ -7,6 +7,7 @@ use App\Http\Requests\StoreLeadRequest;
 use App\Models\Appointment;
 use App\Models\Lead;
 use App\Models\LeadClaim;
+use App\Models\LeadMessage;
 use App\Models\Listing;
 use App\Models\User;
 use App\Notifications\NewLeadNotification;
@@ -20,7 +21,9 @@ class LeadController extends Controller
     {
         abort_if($listing->status !== 'available', 404);
 
-        DB::transaction(function () use ($request, $listing): void {
+        $createdLead = null;
+
+        DB::transaction(function () use ($request, $listing, &$createdLead): void {
             $requestedAt = $request->filled('requested_at') ? $request->date('requested_at') : null;
             $isSiteVisit = ! is_null($requestedAt);
             $inquiryType = $isSiteVisit ? 'site_visit' : 'inquiry';
@@ -35,6 +38,8 @@ class LeadController extends Controller
                 'status' => $isExclusive ? 'claimed' : 'new',
                            'inquiry_type' => $inquiryType,
             ]);
+
+            $createdLead = $lead;
 
             if ($isExclusive && $assignedAgentId) {
                 LeadClaim::create([
@@ -55,6 +60,14 @@ class LeadController extends Controller
             }
 
             $buyerMessage = $request->string('message')->toString() ?: null;
+
+            if ($buyerMessage) {
+                LeadMessage::create([
+                    'lead_id' => $lead->id,
+                    'sender_id' => $request->user()->id,
+                    'message' => $buyerMessage,
+                ]);
+            }
 
             $notification = new NewLeadNotification(
                 leadId: $lead->id,
@@ -100,9 +113,9 @@ class LeadController extends Controller
         });
 
         $successMessage = $request->filled('requested_at')
-            ? 'Site visit request submitted. You can browse other available postings while waiting for confirmation.'
-            : 'Your inquiry was sent. You will be contacted by the listing team shortly.';
+            ? 'Site visit request submitted. Continue in chat to coordinate details with the handling agent.'
+            : 'Your inquiry was sent. Continue the conversation in chat once an agent picks it up.';
 
-        return redirect()->route('properties.index')->with('success', $successMessage);
+        return redirect()->route('leads.conversation.show', $createdLead)->with('success', $successMessage);
     }
 }

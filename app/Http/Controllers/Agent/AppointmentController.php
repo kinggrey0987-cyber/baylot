@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Agent;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateAppointmentStatusRequest;
 use App\Models\Appointment;
+use App\Models\LeadMessage;
 use App\Services\ListingStatusService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -29,6 +30,7 @@ class AppointmentController extends Controller
     {
         abort_if($appointment->assigned_agent_id !== auth()->id(), 403);
 
+        $originalStatus = $appointment->status;
         $status = $request->string('status')->toString();
         $listingOutcome = $request->input('listing_outcome');
         $hasListingOutcome = $request->filled('listing_outcome');
@@ -64,7 +66,23 @@ class AppointmentController extends Controller
         }
 
         $appointment->update($payload);
-        $this->listingStatusService->syncFromAppointment($appointment->refresh()->loadMissing('lead.listing'));
+        $updatedAppointment = $appointment->refresh()->loadMissing('lead.listing');
+
+        if ($status === 'approved' && $originalStatus !== 'approved') {
+            $confirmedScheduleLabel = $updatedAppointment->requested_start?->format('M d, Y h:i A');
+
+            $message = $confirmedScheduleLabel
+                ? 'Agent confirmed the site visit schedule for '.$confirmedScheduleLabel.'.'
+                : 'Agent confirmed the site visit schedule.';
+
+            LeadMessage::create([
+                'lead_id' => $updatedAppointment->lead_id,
+                'sender_id' => auth()->id(),
+                'message' => $message,
+            ]);
+        }
+
+        $this->listingStatusService->syncFromAppointment($updatedAppointment);
 
         return back()->with('success', 'Appointment updated.');
     }

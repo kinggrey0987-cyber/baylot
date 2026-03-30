@@ -7,10 +7,10 @@
     <title>{{ config('app.name', 'BayLot') }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body>
+<body class="d-flex flex-column min-vh-100">
     @include('layouts.navigation')
 
-    <main class="container py-4">
+    <main class="container py-4 flex-grow-1">
         @if (session('success'))
             <div class="toast align-items-center text-bg-success border-0 show mb-3" role="alert">
                 <div class="d-flex">
@@ -33,14 +33,6 @@
         {{ $slot }}
     </main>
 
-    <footer class="footer-light py-4 mt-4 border-top">
-        <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
-            <span class="text-muted">&copy; {{ date('Y') }} BayLot. All rights reserved.</span>
-            <div>
-                <a href="{{ route('home') }}" class="text-decoration-none text-muted me-3">Home</a>
-                <a href="{{ route('profile.edit') }}" class="text-decoration-none text-muted">Profile</a>
-            </div>
-        </div>
-    </footer>
+    @include('partials.site-footer')
 </body>
 </html>

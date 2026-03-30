@@ -10,6 +10,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             GeofenceSeeder::class,
+            DemoDatabaseResetSeeder::class,
             DemoUserSeeder::class,
             DemoDataSeeder::class,
         ]);

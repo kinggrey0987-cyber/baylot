@@ -18,7 +18,7 @@
                     @if($listing)
                         <div class="col-12 col-md-6 col-lg-4">
                             <div class="card h-100 border-0 shadow-sm">
-                                <img src="{{ $listing->images->first()?->image_url ?? 'https://via.placeholder.com/640x360?text=BayLot' }}" class="card-img-top" alt="{{ $listing->title }}">
+                                <img src="{{ $listing->images->first()?->image_url ?? asset('images/hero.jpg') }}" class="card-img-top" alt="{{ $listing->title }}">
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between mb-2">
                                         <div class="d-flex gap-1 flex-wrap">

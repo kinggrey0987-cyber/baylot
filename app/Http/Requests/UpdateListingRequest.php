@@ -37,7 +37,7 @@ class UpdateListingRequest extends FormRequest
             'images' => ['nullable', 'array', 'max:10'],
             'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'delete_images' => ['nullable', 'array'],
-            'delete_images.*' => ['integer'],
+            'delete_images.*' => ['uuid'],
             'replace_images' => ['nullable', 'array'],
             'replace_images.*' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ];

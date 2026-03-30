@@ -26,4 +26,31 @@
             </div>
         </div>
     </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-12 col-md-3">
+            <div class="stat-card h-100">
+                <p class="label">Available Listings</p>
+                <p class="value">{{ $listingByStatus['available'] ?? 0 }}</p>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="stat-card h-100">
+                <p class="label">Reserved Listings</p>
+                <p class="value">{{ $listingByStatus['reserved'] ?? 0 }}</p>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="stat-card h-100">
+                <p class="label">Sold Listings</p>
+                <p class="value">{{ $listingByStatus['sold'] ?? 0 }}</p>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="stat-card h-100">
+                <p class="label">Pending Appointments</p>
+                <p class="value">{{ $appointmentsByStatus['pending'] ?? 0 }}</p>
+            </div>
+        </div>
+    </div>
 </x-app-layout>

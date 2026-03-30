@@ -84,6 +84,10 @@ class NewLeadNotification extends Notification
             return route('broker.dashboard');
         }
 
+        if ($this->listingType === 'exclusive') {
+            return route('leads.conversation.show', $this->leadId);
+        }
+
         return route('agent.leads.queue');
     }
 }

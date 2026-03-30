@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -17,8 +18,15 @@ class AuthenticationTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_users_can_authenticate_using_the_login_screen(): void
+    // -----------------------------------------------------------------------
+    // OTP ENABLED (default / production behaviour)
+    // -----------------------------------------------------------------------
+
+    public function test_valid_credentials_redirect_to_two_factor_challenge(): void
     {
+        config(['auth.otp_enabled' => true]);
+        Mail::fake();
+
         $user = User::factory()->create();
 
         $response = $this->post('/login', [
@@ -26,8 +34,10 @@ class AuthenticationTest extends TestCase
             'password' => 'password',
         ]);
 
-        $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        // User must NOT be authenticated yet — waiting for OTP verification.
+        $this->assertGuest();
+        $response->assertRedirect(route('two-factor.show'));
+        $response->assertSessionHas('two_factor_user_id', $user->id);
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void
@@ -46,9 +56,59 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('/logout');
+        $response = $this->actingAsVerified($user)->post('/logout');
 
         $this->assertGuest();
         $response->assertRedirect('/');
+    }
+
+    // -----------------------------------------------------------------------
+    // OTP DISABLED (dev / testing bypass)
+    // -----------------------------------------------------------------------
+
+    public function test_login_bypasses_otp_and_authenticates_immediately_when_otp_disabled(): void
+    {
+        config(['auth.otp_enabled' => false]);
+
+        $user = User::factory()->create(['role' => 'agent']);
+
+        $response = $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticatedAs($user);
+        $response->assertSessionHas('two_factor_verified', true);
+        $response->assertRedirect(route('dashboard', absolute: false));
+    }
+
+    public function test_buyer_login_bypasses_otp_and_redirects_to_home_when_otp_disabled(): void
+    {
+        config(['auth.otp_enabled' => false]);
+
+        $buyer = User::factory()->create(['role' => 'buyer']);
+
+        $response = $this->post('/login', [
+            'email' => $buyer->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticatedAs($buyer);
+        $response->assertSessionHas('two_factor_verified', true);
+        $response->assertRedirect(route('home', absolute: false));
+    }
+
+    public function test_invalid_credentials_still_rejected_when_otp_disabled(): void
+    {
+        config(['auth.otp_enabled' => false]);
+
+        $user = User::factory()->create();
+
+        $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ]);
+
+        $this->assertGuest();
     }
 }

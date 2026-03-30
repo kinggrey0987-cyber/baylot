@@ -10,6 +10,31 @@ const NEGROS_OCCIDENTAL_FALLBACK_BOUNDS = L.latLngBounds(
 	L.latLng(11.15, 123.45)
 );
 
+const GOOGLE_MAPS_AUTH_FAILURE_EVENT = 'baylot:google-maps-auth-failure';
+
+let googleMapsAuthHandlerInstalled = false;
+
+const installGoogleMapsAuthFailureHandler = () => {
+	if (googleMapsAuthHandlerInstalled) {
+		return;
+	}
+
+	const existingHandler = typeof window.gm_authFailure === 'function' ? window.gm_authFailure : null;
+
+	window.gm_authFailure = () => {
+		window.dispatchEvent(new CustomEvent(GOOGLE_MAPS_AUTH_FAILURE_EVENT));
+
+		if (existingHandler) {
+			try {
+				existingHandler();
+			} catch (_error) {
+			}
+		}
+	};
+
+	googleMapsAuthHandlerInstalled = true;
+};
+
 const resolveNegrosBounds = (geofenceGeoJson) => {
 	if (!geofenceGeoJson) {
 		return NEGROS_OCCIDENTAL_FALLBACK_BOUNDS;
@@ -320,38 +345,249 @@ const reverseGeocodeWithNominatim = async (lat, lng, signal) => {
 	return label;
 };
 
-window.BayLotMap = {
-	createPointValidator(geofenceGeoJson = null) {
-		const bounds = resolveNegrosBounds(geofenceGeoJson);
-		let parsedGeofence = null;
-		let geofencePolygons = [];
+let googleMapsLoaderPromise = null;
 
-		if (geofenceGeoJson) {
-			try {
-				parsedGeofence = typeof geofenceGeoJson === 'string' ? JSON.parse(geofenceGeoJson) : geofenceGeoJson;
-				geofencePolygons = extractPolygonsFromGeoJson(parsedGeofence);
-			} catch (_e) {
+const loadGoogleMapsApi = (apiKey) => {
+	if (!apiKey) {
+		return Promise.reject(new Error('Missing Google Maps API key.'));
+	}
+
+	installGoogleMapsAuthFailureHandler();
+
+	if (window.google?.maps) {
+		return Promise.resolve(window.google.maps);
+	}
+
+	if (googleMapsLoaderPromise) {
+		return googleMapsLoaderPromise;
+	}
+
+	googleMapsLoaderPromise = new Promise((resolve, reject) => {
+		const callbackName = '__baylotInitGoogleMapsApi';
+		const existingScript = document.getElementById('baylot-google-maps-sdk');
+		const authFailureListener = () => {
+			cleanUpCallback();
+			reject(new Error('Google Maps authentication failed.'));
+		};
+
+		const cleanUpCallback = () => {
+			if (window[callbackName]) {
+				delete window[callbackName];
 			}
+
+			window.removeEventListener(GOOGLE_MAPS_AUTH_FAILURE_EVENT, authFailureListener);
+		};
+
+		window.addEventListener(GOOGLE_MAPS_AUTH_FAILURE_EVENT, authFailureListener, { once: true });
+
+		window[callbackName] = () => {
+			cleanUpCallback();
+			resolve(window.google.maps);
+		};
+
+		if (existingScript) {
+			existingScript.addEventListener(
+				'load',
+				() => {
+					cleanUpCallback();
+					resolve(window.google.maps);
+				},
+				{ once: true }
+			);
+
+			existingScript.addEventListener(
+				'error',
+				(error) => {
+					cleanUpCallback();
+					reject(error);
+				},
+				{ once: true }
+			);
+
+			return;
 		}
 
-		const isPointInsideAllowedArea = (point) => {
-			if (!bounds.contains(point)) {
+		const script = document.createElement('script');
+		script.id = 'baylot-google-maps-sdk';
+		script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&callback=${callbackName}`;
+		script.async = true;
+		script.defer = true;
+		script.onerror = (error) => {
+			cleanUpCallback();
+			reject(error);
+		};
+
+		document.head.appendChild(script);
+	}).catch((error) => {
+		googleMapsLoaderPromise = null;
+		throw error;
+	});
+
+	return googleMapsLoaderPromise;
+};
+
+const parseGeoJsonSafely = (geojson) => {
+	if (!geojson) {
+		return null;
+	}
+
+	try {
+		return typeof geojson === 'string' ? JSON.parse(geojson) : geojson;
+	} catch (_error) {
+		return null;
+	}
+};
+
+const createPointValidator = (geofenceGeoJson = null) => {
+	const bounds = resolveNegrosBounds(geofenceGeoJson);
+	const parsedGeofence = parseGeoJsonSafely(geofenceGeoJson);
+	const geofencePolygons = parsedGeofence ? extractPolygonsFromGeoJson(parsedGeofence) : [];
+
+	const isPointInsideAllowedArea = (point) => {
+		if (!point || Number.isNaN(Number(point.lat)) || Number.isNaN(Number(point.lng))) {
+			return false;
+		}
+
+		if (!bounds.contains(point)) {
+			return false;
+		}
+
+		if (!geofencePolygons.length) {
+			return true;
+		}
+
+		const pointCoordinates = [point.lng, point.lat];
+		return geofencePolygons.some((polygonCoordinates) => isPointInsidePolygon(pointCoordinates, polygonCoordinates));
+	};
+
+	const filterMarkerList = (markerList = []) =>
+		markerList.filter((marker) => {
+			const markerLat = Number.parseFloat(marker?.lat);
+			const markerLng = Number.parseFloat(marker?.lng);
+
+			if (Number.isNaN(markerLat) || Number.isNaN(markerLng)) {
 				return false;
 			}
 
-			if (!geofencePolygons.length) {
-				return true;
-			}
+			return isPointInsideAllowedArea(L.latLng(markerLat, markerLng));
+		});
 
-			const pointCoordinates = [point.lng, point.lat];
-			return geofencePolygons.some((polygonCoordinates) => isPointInsidePolygon(pointCoordinates, polygonCoordinates));
-		};
+	return {
+		bounds,
+		parsedGeofence,
+		isPointInsideAllowedArea,
+		filterMarkerList,
+	};
+};
 
-		return {
-			bounds,
-			parsedGeofence,
-			isPointInsideAllowedArea,
-		};
+const toGoogleBoundsLiteral = (bounds) => {
+	if (!bounds?.isValid?.()) {
+		return null;
+	}
+
+	return {
+		north: bounds.getNorth(),
+		south: bounds.getSouth(),
+		east: bounds.getEast(),
+		west: bounds.getWest(),
+	};
+};
+
+const drawGeofenceOnGoogleMap = (map, parsedGeoJson) => {
+	const polygonCoordinatesList = extractPolygonsFromGeoJson(parsedGeoJson);
+	if (!polygonCoordinatesList.length) {
+		return null;
+	}
+
+	const geofenceBounds = new google.maps.LatLngBounds();
+
+	polygonCoordinatesList.forEach((polygonCoordinates) => {
+		const polygonPaths = polygonCoordinates
+			.filter((ringCoordinates) => Array.isArray(ringCoordinates) && ringCoordinates.length >= 3)
+			.map((ringCoordinates) =>
+				ringCoordinates
+					.filter((coordinate) => Array.isArray(coordinate) && coordinate.length >= 2)
+					.map(([lng, lat]) => {
+						const point = { lat, lng };
+						geofenceBounds.extend(point);
+						return point;
+					})
+			)
+			.filter((ringCoordinates) => ringCoordinates.length >= 3);
+
+		if (!polygonPaths.length) {
+			return;
+		}
+
+		new google.maps.Polygon({
+			paths: polygonPaths,
+			strokeColor: '#0d6efd',
+			strokeOpacity: 1,
+			strokeWeight: 2,
+			fillColor: '#0d6efd',
+			fillOpacity: 0.05,
+			clickable: false,
+			map,
+		});
+	});
+
+	return geofenceBounds;
+};
+
+const initLeafletViewMap = (mapId, lat, lng, geofenceGeoJson = null) => {
+	const mapEl = document.getElementById(mapId);
+	if (!mapEl || lat === null || lng === null) {
+		return;
+	}
+
+	const geofencePointValidator = createPointValidator(geofenceGeoJson);
+	const bounds = geofencePointValidator.bounds;
+	const listingPoint = L.latLng(lat, lng);
+	const hasValidListingPoint = geofencePointValidator.isPointInsideAllowedArea(listingPoint);
+	const initialCenter = hasValidListingPoint ? listingPoint : bounds.getCenter();
+	const map = L.map(mapEl, { maxBoundsViscosity: 1.0 }).setView(
+		[initialCenter.lat, initialCenter.lng],
+		hasValidListingPoint ? 15 : 10
+	);
+	L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+		attribution: '&copy; OpenStreetMap contributors',
+	}).addTo(map);
+
+	if (hasValidListingPoint) {
+		L.marker(listingPoint).addTo(map);
+	}
+
+	if (geofencePointValidator.parsedGeofence) {
+		const geofenceLayer = L.geoJSON(geofencePointValidator.parsedGeofence, {
+			style: { color: '#0d6efd', weight: 2, fillOpacity: 0.05 },
+		}).addTo(map);
+
+		addOutsideMask(map, geofencePointValidator.parsedGeofence);
+
+		const allowedBounds = geofenceLayer.getBounds().isValid() ? geofenceLayer.getBounds() : bounds;
+		constrainMapToBounds(map, allowedBounds);
+
+		if (hasValidListingPoint) {
+			map.panTo(listingPoint);
+		} else {
+			map.fitBounds(allowedBounds);
+		}
+
+		return;
+	}
+
+	constrainMapToBounds(map, bounds);
+
+	if (hasValidListingPoint) {
+		map.panTo(listingPoint);
+	} else {
+		map.fitBounds(bounds);
+	}
+};
+
+window.BayLotMap = {
+	createPointValidator(geofenceGeoJson = null) {
+		return createPointValidator(geofenceGeoJson);
 	},
 
 	initPicker(mapId, latInputId, lngInputId, geofenceGeoJson = null, locationNameInputId = null, validationFeedbackId = null) {
@@ -524,41 +760,175 @@ window.BayLotMap = {
 		});
 	},
 
-	initViewMap(mapId, lat, lng, geofenceGeoJson = null) {
+	initViewMap(mapId, lat, lng, geofenceGeoJson = null, googleMapsApiKey = null) {
 		const mapEl = document.getElementById(mapId);
-		if (!mapEl || lat === null || lng === null) {
+		const parsedLat = Number.parseFloat(lat);
+		const parsedLng = Number.parseFloat(lng);
+
+		if (!mapEl || Number.isNaN(parsedLat) || Number.isNaN(parsedLng)) {
 			return;
 		}
 
-		const bounds = resolveNegrosBounds(geofenceGeoJson);
-		const listingPoint = keepPointInsideBounds(L.latLng(lat, lng), bounds);
-		const map = L.map(mapEl, { maxBoundsViscosity: 1.0 }).setView([listingPoint.lat, listingPoint.lng], 15);
+		const geofencePointValidator = createPointValidator(geofenceGeoJson);
+		const bounds = geofencePointValidator.bounds;
+		const listingPoint = L.latLng(parsedLat, parsedLng);
+		const hasValidListingPoint = geofencePointValidator.isPointInsideAllowedArea(listingPoint);
+		const initialCenter = hasValidListingPoint ? listingPoint : bounds.getCenter();
+		const normalizedApiKey = typeof googleMapsApiKey === 'string' ? googleMapsApiKey.trim() : '';
+		const fallbackToLeaflet = () => {
+			if (mapEl.dataset.baylotMapProvider === 'leaflet') {
+				return;
+			}
+
+			mapEl.dataset.baylotMapProvider = 'leaflet';
+			mapEl.innerHTML = '';
+			initLeafletViewMap(mapId, parsedLat, parsedLng, geofenceGeoJson);
+		};
+
+		if (!normalizedApiKey) {
+			fallbackToLeaflet();
+			return;
+		}
+
+		window.addEventListener(GOOGLE_MAPS_AUTH_FAILURE_EVENT, fallbackToLeaflet, { once: true });
+
+		loadGoogleMapsApi(normalizedApiKey)
+			.then(() => {
+				if (mapEl.dataset.baylotMapProvider === 'leaflet') {
+					return;
+				}
+
+				mapEl.dataset.baylotMapProvider = 'google';
+
+				const mapOptions = {
+					center: { lat: initialCenter.lat, lng: initialCenter.lng },
+					zoom: hasValidListingPoint ? 15 : 10,
+					mapTypeControl: false,
+					streetViewControl: false,
+					fullscreenControl: true,
+				};
+
+				const restrictedBounds = toGoogleBoundsLiteral(bounds);
+				if (restrictedBounds) {
+					mapOptions.restriction = {
+						latLngBounds: restrictedBounds,
+						strictBounds: true,
+					};
+				}
+
+				const map = new google.maps.Map(mapEl, mapOptions);
+
+				if (hasValidListingPoint) {
+					new google.maps.Marker({
+						position: { lat: listingPoint.lat, lng: listingPoint.lng },
+						map,
+					});
+				}
+
+				if (geofencePointValidator.parsedGeofence) {
+					const geofenceBounds = drawGeofenceOnGoogleMap(map, geofencePointValidator.parsedGeofence);
+					if (geofenceBounds && !geofenceBounds.isEmpty()) {
+						map.fitBounds(geofenceBounds, 24);
+
+						if (hasValidListingPoint) {
+							map.panTo({ lat: listingPoint.lat, lng: listingPoint.lng });
+						}
+					}
+				}
+			})
+			.catch(() => {
+				fallbackToLeaflet();
+			});
+	},
+
+	initBrowseMap(mapId, initialMarkers, mapDataUrl, geofenceGeoJson = null) {
+		const mapEl = document.getElementById(mapId);
+		if (!mapEl) return null;
+
+		const geofencePointValidator = createPointValidator(geofenceGeoJson);
+		const bounds = geofencePointValidator.bounds;
+		const center = bounds.getCenter();
+		const map = L.map(mapEl, { maxBoundsViscosity: 1.0 }).setView([center.lat, center.lng], 10);
+
 		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			attribution: '&copy; OpenStreetMap contributors',
 		}).addTo(map);
 
-		L.marker(listingPoint).addTo(map);
+		let geofenceLayer = null;
+		if (geofencePointValidator.parsedGeofence) {
+			geofenceLayer = L.geoJSON(geofencePointValidator.parsedGeofence, {
+				style: { color: '#0d6efd', weight: 2, fillOpacity: 0.05 },
+			}).addTo(map);
 
-		if (geofenceGeoJson) {
+			addOutsideMask(map, geofencePointValidator.parsedGeofence);
+		}
+
+		const allowedBounds = geofenceLayer?.getBounds()?.isValid() ? geofenceLayer.getBounds() : bounds;
+		lockMapToBounds(map, allowedBounds);
+
+		const markerLayer = L.layerGroup().addTo(map);
+
+		const formatPrice = (price) =>
+			'\u20B1' + Number(price).toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+		const renderMarkers = (markerList) => {
+			const visibleMarkers = geofencePointValidator.filterMarkerList(markerList);
+			markerLayer.clearLayers();
+			visibleMarkers.forEach((data) => {
+				const marker = L.marker([data.lat, data.lng]);
+				marker.bindPopup(
+					'<div style="min-width:190px;max-width:220px">' +
+					'<img src="' + data.thumb + '" style="width:100%;height:110px;object-fit:cover;border-radius:4px;margin-bottom:8px" alt="" loading="lazy">' +
+					'<p style="font-weight:600;font-size:.875rem;margin:0 0 4px">' + data.title + '</p>' +
+					'<p style="color:#0d6efd;font-weight:600;margin:0 0 10px">' + formatPrice(data.price) + '</p>' +
+					'<a href="' + data.url + '" style="display:block;text-align:center;padding:6px 12px;background:#0d6efd;color:#fff;border-radius:4px;text-decoration:none;font-size:.875rem">View Details</a>' +
+					'</div>',
+					{ maxWidth: 250 }
+				);
+				markerLayer.addLayer(marker);
+			});
+
+			return visibleMarkers;
+		};
+
+		const visibleInitialMarkers = renderMarkers(initialMarkers);
+
+		if (visibleInitialMarkers.length > 0) {
 			try {
-				const parsedGeofence = JSON.parse(geofenceGeoJson);
-				const geofenceLayer = L.geoJSON(parsedGeofence, {
-					style: { color: '#0d6efd', weight: 2, fillOpacity: 0.05 },
-				}).addTo(map);
-
-				addOutsideMask(map, parsedGeofence);
-
-				const allowedBounds = geofenceLayer.getBounds().isValid() ? geofenceLayer.getBounds() : bounds;
-				constrainMapToBounds(map, allowedBounds);
-				map.panTo(listingPoint);
+				map.fitBounds(
+					visibleInitialMarkers.map((m) => [m.lat, m.lng]),
+					{ padding: [40, 40], maxZoom: 14 }
+				);
 			} catch (_e) {
-				constrainMapToBounds(map, bounds);
-				map.panTo(listingPoint);
+				map.fitBounds(allowedBounds);
 			}
 		} else {
-			constrainMapToBounds(map, bounds);
-			map.panTo(listingPoint);
+			map.fitBounds(allowedBounds);
 		}
+
+		if (mapDataUrl) {
+			let boundsTimer = null;
+			const refreshForBounds = () => {
+				clearTimeout(boundsTimer);
+				boundsTimer = window.setTimeout(() => {
+					const b = map.getBounds();
+					const params = new URLSearchParams(window.location.search);
+					params.set('sw_lat', b.getSouth().toFixed(6));
+					params.set('sw_lng', b.getWest().toFixed(6));
+					params.set('ne_lat', b.getNorth().toFixed(6));
+					params.set('ne_lng', b.getEast().toFixed(6));
+					fetch(mapDataUrl + '?' + params.toString(), { headers: { Accept: 'application/json' } })
+						.then((r) => r.json())
+						.then((data) => renderMarkers(data))
+						.catch(() => {});
+				}, 400);
+			};
+
+			map.on('moveend', refreshForBounds);
+			map.on('zoomend', refreshForBounds);
+		}
+
+		return map;
 	},
 };
 

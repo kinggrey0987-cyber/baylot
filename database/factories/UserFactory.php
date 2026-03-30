@@ -44,4 +44,47 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
+
+    public function admin(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'admin',
+            'broker_id' => null,
+            'is_active' => true,
+        ]);
+    }
+
+    public function broker(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'broker',
+            'broker_id' => null,
+            'is_active' => true,
+        ]);
+    }
+
+    public function agent(?string $brokerId = null): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'agent',
+            'broker_id' => $brokerId,
+            'is_active' => true,
+        ]);
+    }
+
+    public function buyer(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'buyer',
+            'broker_id' => null,
+            'is_active' => true,
+        ]);
+    }
+
+    public function inactive(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_active' => false,
+        ]);
+    }
 }
