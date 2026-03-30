@@ -1,0 +1,17 @@
+.git
+.gitignore
+.vscode
+.idea
+node_modules
+vendor
+storage/logs
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*.php
+.env
+.env.*
+tests
+docker-compose.yml
+npm-debug.log
+yarn-error.log

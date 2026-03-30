@@ -1,0 +1,41 @@
+#!/bin/sh
+set -eu
+
+cd /var/www/html
+
+PORT="${PORT:-10000}"
+
+mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache
+chown -R www-data:www-data storage bootstrap/cache
+chmod -R ug+rwx storage bootstrap/cache
+
+cat > /etc/nginx/http.d/default.conf <<EOF
+server {
+    listen ${PORT};
+    server_name _;
+    root /var/www/html/public;
+    index index.php index.html;
+
+    location / {
+        try_files \$uri \$uri/ /index.php?\$query_string;
+    }
+
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_pass 127.0.0.1:9000;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}
+EOF
+
+php artisan optimize:clear || true
+php artisan config:cache || true
+php artisan route:cache || true
+php artisan view:cache || true
+
+php-fpm -D
+exec nginx -g 'daemon off;'
