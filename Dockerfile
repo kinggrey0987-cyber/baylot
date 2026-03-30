@@ -4,6 +4,8 @@ RUN apk add --no-cache \
     nginx \
     postgresql-dev \
     libpq \
+    nodejs \
+    npm \
     bash \
     && docker-php-ext-install pdo_pgsql \
     && rm -rf /var/cache/apk/*
@@ -20,6 +22,8 @@ RUN composer install \
     --no-interaction \
     --no-progress \
     --optimize-autoloader
+
+RUN if [ -f package.json ]; then npm install && npm run build; fi
 
 RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache \
