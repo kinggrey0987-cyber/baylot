@@ -31,7 +31,7 @@ server {
     }
 }
 EOF
-
+php artisan storage:link || true
 php artisan optimize:clear || true
 php artisan config:cache || true
 php artisan route:cache || true
