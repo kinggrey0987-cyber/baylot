@@ -104,6 +104,7 @@ class TwoFactorController extends Controller
         $request->session()->regenerate();
         $request->session()->put('two_factor_verified', true);
         $request->session()->forget('two_factor_user_id');
+        $request->session()->forget('two_factor_otp_sent_at');
 
         $fallbackRoute = $pendingUser->role === 'buyer'
             ? route('home', absolute: false)
@@ -122,19 +123,18 @@ class TwoFactorController extends Controller
             ]);
         }
 
-        /** @var LoginOtp|null $latestOtp */
-        $latestOtp = LoginOtp::query()
-            ->where('user_id', $pendingUser->id)
-            ->whereNull('consumed_at')
-            ->latest('created_at')
-            ->first();
+        $otpSentAt = $request->session()->get('two_factor_otp_sent_at');
 
-        if ($latestOtp && now()->diffInSeconds($latestOtp->last_sent_at) < self::RESEND_COOLDOWN_SECONDS) {
-            $remaining = (int) max(0, ceil(self::RESEND_COOLDOWN_SECONDS - now()->floatDiffInSeconds($latestOtp->last_sent_at)));
+        if ($otpSentAt) {
+            $elapsed = now()->diffInSeconds(\Carbon\Carbon::parse($otpSentAt));
 
-            return back()->withErrors([
-                'code' => "Please wait {$remaining} seconds before resending another code.",
-            ]);
+            if ($elapsed < self::RESEND_COOLDOWN_SECONDS) {
+                $remaining = max(0, self::RESEND_COOLDOWN_SECONDS - $elapsed);
+
+                return back()->withErrors([
+                    'code' => "Please wait {$remaining} seconds before resending another code.",
+                ]);
+            }
         }
 
         $sentInLastHour = LoginOtp::query()
