@@ -195,7 +195,7 @@ class TwoFactorController extends Controller
             'last_sent_at' => now(),
         ]);
 
-        dispatch(function () use ($user, $newOtp, $plainCode): void {
+        app()->terminating(function () use ($user, $newOtp, $plainCode): void {
             try {
                 Mail::to($user->email)->send(new LoginOtpMail($user, $plainCode, self::OTP_EXPIRY_MINUTES));
 
@@ -208,7 +208,7 @@ class TwoFactorController extends Controller
                 LoginOtp::query()->whereKey($newOtp->id)->delete();
                 report($exception);
             }
-        })->afterResponse();
+        });
     }
 
     private function pendingUser(Request $request): ?User
