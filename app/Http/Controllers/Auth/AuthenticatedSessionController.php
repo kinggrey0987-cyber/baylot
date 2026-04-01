@@ -68,6 +68,7 @@ class AuthenticatedSessionController extends Controller
         try {
             app(TwoFactorController::class)->issueAndSendOtp($user);
         } catch (Throwable $exception) {
+            \Log::error('OTP login failed: ' . $exception->getMessage(), ['exception' => $exception]);
             report($exception);
 
             $request->session()->forget('two_factor_user_id');

@@ -145,6 +145,7 @@ class TwoFactorController extends Controller
         try {
             $this->issueAndSendOtp($pendingUser);
         } catch (Throwable $exception) {
+            \Log::error('OTP resend failed: ' . $exception->getMessage(), ['exception' => $exception]);
             report($exception);
 
             return back()->withErrors([
