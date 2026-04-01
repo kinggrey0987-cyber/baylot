@@ -33,6 +33,8 @@ server {
 EOF
 php artisan storage:link || true
 php artisan optimize:clear || true
+# Apply migrations on each deploy/start so shell access is not required.
+php artisan migrate --force || true
 php artisan config:cache || true
 php artisan route:cache || true
 php artisan view:cache || true
