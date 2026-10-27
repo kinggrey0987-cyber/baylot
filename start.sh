@@ -16,6 +16,14 @@ server {
     root /var/www/html/public;
     index index.php index.html;
 
+    server_tokens off;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(self)" always;
+
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;
     }

@@ -43,6 +43,7 @@ class LoginRequest extends FormRequest
 
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
+            RateLimiter::hit($this->ipThrottleKey());
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
@@ -59,6 +60,17 @@ class LoginRequest extends FormRequest
      */
     public function ensureIsNotRateLimited(): void
     {
+        if (RateLimiter::tooManyAttempts($this->ipThrottleKey(), 20)) {
+            $seconds = RateLimiter::availableIn($this->ipThrottleKey());
+
+            throw ValidationException::withMessages([
+                'email' => trans('auth.throttle', [
+                    'seconds' => $seconds,
+                    'minutes' => ceil($seconds / 60),
+                ]),
+            ]);
+        }
+
         if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
             return;
         }
@@ -81,5 +93,13 @@ class LoginRequest extends FormRequest
     public function throttleKey(): string
     {
         return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+    }
+
+    /**
+     * Get the rate limiting throttle key for the client IP address.
+     */
+    public function ipThrottleKey(): string
+    {
+        return 'login-ip:'.$this->ip();
     }
 }

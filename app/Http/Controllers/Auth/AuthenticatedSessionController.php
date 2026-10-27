@@ -32,6 +32,7 @@ class AuthenticatedSessionController extends Controller
 
         if (! Auth::validate($request->only('email', 'password'))) {
             RateLimiter::hit($request->throttleKey());
+            RateLimiter::hit($request->ipThrottleKey());
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
@@ -41,6 +42,15 @@ class AuthenticatedSessionController extends Controller
         RateLimiter::clear($request->throttleKey());
 
         $user = User::query()->where('email', $request->string('email'))->firstOrFail();
+
+        if (! $user->is_active) {
+            RateLimiter::hit($request->throttleKey());
+            RateLimiter::hit($request->ipThrottleKey());
+
+            throw ValidationException::withMessages([
+                'email' => 'This account has been deactivated. Please contact an administrator.',
+            ]);
+        }
 
         // Dev/testing bypass: when OTP is disabled, log in immediately without
         // issuing or sending an OTP. The two_factor_verified session flag is set

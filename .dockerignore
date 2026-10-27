@@ -2,6 +2,7 @@
 .gitignore
 .vscode
 .idea
+.fleet
 node_modules
 vendor
 storage/logs
@@ -13,5 +14,11 @@ bootstrap/cache/*.php
 .env.*
 tests
 docker-compose.yml
-npm-debug.log
-yarn-error.log
+npm-debug.log*
+yarn-error.log*
+*.sqlite*
+*.key
+*.pem
+Account Demos for BayLot.txt
+*demo*.txt
+*credential*.txt

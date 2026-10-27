@@ -14,6 +14,7 @@ use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -33,6 +34,15 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->environment('production')) {
             URL::forceScheme('https');
         }
+
+        // Configure hardened password security defaults
+        Password::defaults(function () {
+            $rule = Password::min(8);
+
+            return $this->app->environment('production')
+                ? $rule->letters()->mixedCase()->numbers()->symbols()->uncompromised()
+                : $rule;
+        });
 
         // This project uses Bootstrap; force Bootstrap pagination templates globally.
         Paginator::useBootstrapFive();
